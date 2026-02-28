@@ -1,0 +1,13 @@
+Metric_Name,Value,Description
+Final_Target_Diagnosis_AUC,0.8446640316205534,Target Eval
+Final_Target_Diagnosis_MCC,0.5382269557120971,Target Eval
+Final_Target_Diagnosis_Acc,0.7482993197278912,Target Eval
+Final_Domain_MCC,0.0,
+Final_Domain_Acc,0.0,
+Final_Silhouette_Domain,-0.23039688,
+Best_Target_Diagnosis_AUC,0.8468379446640316,Target Eval
+Best_Target_Diagnosis_MCC,0.5382269557120971,Target Eval
+Best_Target_Diagnosis_Acc,0.7482993197278912,Target Eval
+Best_Domain_MCC,-0.0005298599736135783,
+Best_Domain_Acc,0.0,
+Best_Silhouette_Domain,-0.26050863,
