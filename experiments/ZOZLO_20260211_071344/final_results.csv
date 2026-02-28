@@ -1,0 +1,15 @@
+Metric_Name,Value,Description
+Final_Target_Diagnosis_AUC,0.8580553266205612,Diag AUC on Target Hospital
+Final_Target_Diagnosis_MCC,0.6346217820683973,Diag MCC on Target Hospital
+Final_Target_Diagnosis_Acc,0.8247248094834886,Diag Accuracy on Target Hospital
+Final_Domain_MCC,0.0012086624676954166,Ability to distinguish hospitals (Final_)
+Final_Domain_Acc,0.18803030303030302,Accuracy of hospital classification (Final_)
+Final_Silhouette_Diagnosis,0.17338549,Clustering quality by pathology (Final_)
+Final_Silhouette_Domain,-0.21810971,Clustering quality by hospital (Final_)
+Best_Target_Diagnosis_AUC,0.9072096606586162,Diag AUC on Target Hospital
+Best_Target_Diagnosis_MCC,0.6709076226213694,Diag MCC on Target Hospital
+Best_Target_Diagnosis_Acc,0.838272650296359,Diag Accuracy on Target Hospital
+Best_Domain_MCC,0.009010611826768634,Ability to distinguish hospitals (Best_)
+Best_Domain_Acc,0.1896969696969697,Accuracy of hospital classification (Best_)
+Best_Silhouette_Diagnosis,0.16005117,Clustering quality by pathology (Best_)
+Best_Silhouette_Domain,-0.28329834,Clustering quality by hospital (Best_)
