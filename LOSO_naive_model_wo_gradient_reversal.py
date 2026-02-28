@@ -311,7 +311,7 @@ for current_target in MY_TARGET_LIST:
     print("\n🧠 Ładowanie modelu i RESET WAG (Naive Multi-Task)...")
     raw_backbone = torch.load(model_pth, map_location=device)
     
-    # Niszczymy stare wagi!
+    # Niszczymy stare wagi
     raw_backbone.apply(weight_reset)
     
     if hasattr(raw_backbone, 'n_chans'): raw_backbone.n_chans = 19
@@ -539,4 +539,4 @@ for current_target in MY_TARGET_LIST:
 
     print(f"✅ Zakończono dla {current_target}")
 
-print("\n🎉 ZAKOŃCZONO PĘTLĘ 1/2!")
+print("\n ZAKOŃCZONO PĘTLĘ 1/2")
