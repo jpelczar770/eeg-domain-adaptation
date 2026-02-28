@@ -51,7 +51,7 @@ model_pth = "/dmj/fizmed/jpelczar/od_martyny/minet/models/minet_raw_fold_6"
 csv_path = 'used_label_database.csv'
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-print(f"🔧 Using device: {device}")
+print(f"Using device: {device}")
 
 # ==========================================
 # KONFIGURACJA EKSPERYMENTU (LOGOWANIE)
@@ -63,7 +63,7 @@ TIMESTAMP = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 EXP_DIR = f"experiments/{TARGET_HOSPITAL_CODE}_{TIMESTAMP}"
 os.makedirs(EXP_DIR, exist_ok=True)
 
-print(f"📁 Wyniki będą zapisywane w: {EXP_DIR}")
+print(f"Wyniki będą zapisywane w: {EXP_DIR}")
 
 # Ścieżki do plików
 TRAIN_LOG_FILE = os.path.join(EXP_DIR, "training_log.csv")
@@ -215,7 +215,7 @@ class MinetDANN(nn.Module):
 # 6. PRZYGOTOWANIE METADANYCH I DANYCH LOSO
 # ==========================================
 
-print("📂 Ładowanie metadanych...")
+print(" Ładowanie metadanych...")
 df_meta = pd.read_csv(csv_path, sep='|', low_memory=False)
 
 df_meta['examination_id'] = df_meta['examination_id'].astype(str).str.strip()
@@ -258,7 +258,7 @@ def get_domain_labels(eids):
     return torch.tensor(labels, dtype=torch.long).to(device)
 
 # --- CONFIG STRICT LOSO ---
-print(f"\n🏥 KONFIGURACJA STRICT LOSO (Zero-Shot): Target = {TARGET_HOSPITAL_CODE}")
+print(f"\n KONFIGURACJA STRICT LOSO (Zero-Shot): Target = {TARGET_HOSPITAL_CODE}")
 
 if TARGET_HOSPITAL_CODE not in ALLOWED_HOSPITALS:
     print(f"⚠️ UWAGA! Szpital {TARGET_HOSPITAL_CODE} nie znajduje się na liście ALLOWED_HOSPITALS!")
@@ -527,7 +527,6 @@ def run_target_evaluation(model, loader, device, prefix=""):
 # ==========================================
 
 def evaluate_comprehensive(model, source_loader, target_loader, device, max_batches=100, prefix=""):
-    print(f"\n🚀 ROZPOCZYNAMY KOMPLETNĄ ANALIZĘ {prefix} (Silhouette + Domain Metrics)...")
     model.eval()
     
     feats_list = []
@@ -633,7 +632,7 @@ print(f"🔧 Using device: {device}")
 # ==========================================
 # KONFIGURACJA EKSPERYMENTU (LOGOWANIE)
 # ==========================================
-TARGET_HOSPITAL_CODE = 'GAK' # <-- TU ZMIENIASZ SZPITAL (Target)
+TARGET_HOSPITAL_CODE = 'GAK' 
 
 # Generowanie unikalnej nazwy folderu
 TIMESTAMP = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
