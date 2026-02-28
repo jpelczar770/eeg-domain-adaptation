@@ -64,7 +64,6 @@ ALLOWED_HOSPITALS = [
     "GAK", "WLU", "Z04O", "TER_L", "PIO"
 ]
 
-# --- LISTA SZPITALI DLA TEJ MASZYNY (CZĘŚĆ 2/2) ---
 MY_TARGET_LIST = [
     "KUD", "ARCHDAM", "MOR", "KAL", "B2K", 
     "SLU", "SL2", "STG1", "CHE", "KLU", 
@@ -72,7 +71,7 @@ MY_TARGET_LIST = [
 ]
 
 # =================================================================
-# NOWE: SPRAWDZANIE CO JUŻ POLICZONE
+# CHECK WHAT'S DONE
 # =================================================================
 EXP_ROOT = "experiments_finetuning"
 if os.path.exists(EXP_ROOT):
@@ -92,20 +91,18 @@ if os.path.exists(EXP_ROOT):
                 
     # Filtrujemy listę
     filtered_list = [h for h in MY_TARGET_LIST if h not in completed_hospitals]
-    print(f"✅ Znaleziono gotowe: {completed_hospitals}")
-    print(f"⏩ Do policzenia pozostało: {filtered_list}")
+    print(f"Znaleziono gotowe: {completed_hospitals}")
+    print(f" Do policzenia pozostało: {filtered_list}")
     MY_TARGET_LIST = filtered_list
 else:
     print(f"⚠️ Folder '{EXP_ROOT}' nie istnieje, liczymy całą listę.")
 
 if not MY_TARGET_LIST:
-    print("🎉 Wszystkie szpitale z tej listy zostały już policzone! Zamykam skrypt.")
+    print("Wszystkie szpitale z tej listy zostały już policzone! Zamykam skrypt.")
     exit()
 
-print(f"🚀 Uruchamiam pętlę dla szpitali: {MY_TARGET_LIST}")
-
 # ==========================================
-# DEFINICJE KLAS (POZA PĘTLĄ)
+# class definition
 # ==========================================
 
 def collate_pad(batch):
@@ -229,11 +226,7 @@ class MinetDANN(nn.Module):
 
         return class_output, domain_output
 
-# ==========================================
-# GŁÓWNA PĘTLA SZPITALI
-# ==========================================
 
-print("📂 Ładowanie metadanych (raz na start)...")
 df_meta = pd.read_csv(csv_path, sep='|', low_memory=False)
 df_meta['examination_id'] = df_meta['examination_id'].astype(str).str.strip()
 df_meta['institution_id'] = df_meta['institution_id'].astype(str).str.strip()
@@ -326,11 +319,11 @@ for current_target in MY_TARGET_LIST:
 
     print(f"   Source: {len(source_pool)} | Target Train: {len(target_train_eids)} | Target Eval: {len(target_eval_eids)}")
 
-# Loadery (ZMIENIONE NA num_workers=0)
-    source_loader = Loader(data_pth, source_pool, minet_subsampling_n=4, num_workers=0).get_batched_loader(32, pad=True)
-    target_loader = Loader(data_pth, target_train_eids, minet_subsampling_n=4, num_workers=0).get_batched_loader(32, pad=True)
-    eval_loader = Loader(data_pth, target_eval_eids, minet_subsampling_n=4, num_workers=0).get_batched_loader(32, pad=True)
-    test_loader_full = Loader(data_pth, target_eval_eids, minet_subsampling_n=None, num_workers=0).get_batched_loader(1, pad=True)
+# Loaders
+    source_loader = Loader(data_pth, source_pool, minet_subsampling_n=4, num_workers=4).get_batched_loader(32, pad=True)
+    target_loader = Loader(data_pth, target_train_eids, minet_subsampling_n=4, num_workers=4).get_batched_loader(32, pad=True)
+    eval_loader = Loader(data_pth, target_eval_eids, minet_subsampling_n=4, num_workers=4).get_batched_loader(32, pad=True)
+    test_loader_full = Loader(data_pth, target_eval_eids, minet_subsampling_n=None, num_workers=4).get_batched_loader(1, pad=True)
 
     # 3. INICJALIZACJA MODELU
     print("\n🧠 Ładowanie modelu...")
@@ -369,7 +362,7 @@ for current_target in MY_TARGET_LIST:
     loss_class_fn = nn.BCEWithLogitsLoss()
     loss_domain_fn = nn.CrossEntropyLoss()
 
-    # 4. TRENING (10 EPOK)
+    # 4. FINETUNING 1O EPOK
     EPOCHS = 10
     STEPS = 500
     best_auc = 0.0
@@ -557,11 +550,9 @@ for current_target in MY_TARGET_LIST:
     evaluate_metrics_comprehensive(dann_model, source_loader, device, prefix="Final_")
 
     # 2. Best Model
-    print(f"✅ Przywracanie najlepszych wag (AUC={best_auc:.4f})...")
+    print(f" Przywracanie najlepszych wag (AUC={best_auc:.4f})...")
     dann_model.load_state_dict(best_model_wts)
     run_evaluation(dann_model, test_loader_full, device, prefix="Best_")
     evaluate_metrics_comprehensive(dann_model, source_loader, device, prefix="Best_")
 
-    print(f"✅ Zakończono dla {current_target}")
-
-print("\n🎉 ZAKOŃCZONO CAŁĄ LISTĘ SZPITALI!")
+    print(f"Zakończono dla {current_target}")

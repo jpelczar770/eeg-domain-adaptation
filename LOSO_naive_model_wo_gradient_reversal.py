@@ -64,11 +64,11 @@ ALLOWED_HOSPITALS = [
     "GAK", "WLU", "Z04O", "TER_L", "PIO"
 ]
 
-# --- LISTA SZPITALI DLA TEJ MASZYNY (CZĘŚĆ 2/2) ---
+# --- LISTA SZPITALI DLA TEJ MASZYNY (CZĘŚĆ 1/2) ---
 MY_TARGET_LIST = [
-    "KUD", "ARCHDAM", "MOR", "KAL", "B2K", 
-    "SLU", "SL2", "STG1", "CHE", "KLU", 
-    "GAK", "WLU", "Z04O", "TER_L", "PIO"
+    "ZOZLO", "KATMOJPRZ", "SZC", "TOR", "OST", 
+    "LUMICE", "CMD", "SRK", "AKS", "PRZ", 
+    "KIEG", "OTW", "MKW", "PUS", "LUX_A"
 ]
 
 print(f"🚀 Uruchamiam pętlę (Multi-task NAIVE - od zera) dla szpitali: {MY_TARGET_LIST}")
@@ -311,7 +311,7 @@ for current_target in MY_TARGET_LIST:
     print("\n🧠 Ładowanie modelu i RESET WAG (Naive Multi-Task)...")
     raw_backbone = torch.load(model_pth, map_location=device)
     
-    # Niszczymy stare wagi!
+    # Niszczymy stare wagi
     raw_backbone.apply(weight_reset)
     
     if hasattr(raw_backbone, 'n_chans'): raw_backbone.n_chans = 19
@@ -539,4 +539,4 @@ for current_target in MY_TARGET_LIST:
 
     print(f"✅ Zakończono dla {current_target}")
 
-print("\n🎉 ZAKOŃCZONO PĘTLĘ 1/2!")
+print("\n ZAKOŃCZONO PĘTLĘ 1/2")
