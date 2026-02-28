@@ -231,12 +231,12 @@ def get_domain_labels(eids):
 
 
 # ==========================================
-# DRUGA POLOWA DOCELOWEJ LISTY
+# LISTA CELÓW (1. MASZYNA - 1 POŁOWA)
 # ==========================================
 MY_TARGET_HOSPITALS = [
-    "KUD", "ARCHDAM", "MOR", "KAL", "B2K", 
-    "SLU", "SL2", "STG1", "CHE", "KLU", 
-    "GAK", "WLU", "Z04O", "TER_L", "PIO"
+    "ZOZLO", "KATMOJPRZ", "SZC", "TOR", "OST", 
+    "LUMICE", "CMD", "SRK", "AKS", "PRZ", 
+    "KIEG", "OTW", "MKW", "PUS", "LUX_A"
 ]
 
 for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
@@ -603,4 +603,4 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
     run_target_evaluation(dann_model, test_loader, device, prefix="Best_")
     evaluate_comprehensive(dann_model, train_loader, test_loader, device, max_batches=200, prefix="Best_")
 
-print("\n🎉 ZAKOŃCZONO ANALIZĘ WSZYSTKICH SZPITALI Z LISTY!")
+print("\n ZAKOŃCZONO ANALIZĘ WSZYSTKICH SZPITALI Z LISTY")
