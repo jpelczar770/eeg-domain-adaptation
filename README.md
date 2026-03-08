@@ -26,8 +26,11 @@ The clinical EEG datasets (HDF5 files and label metadata CSVs) used in this rese
 
 ## 🎓 Citation & Acknowledgements
 
-This project builds upon the Domain-Adversarial Training framework introduced by Ganin et al. (2016):
+## Acknowledgments
 
-> Poziomska, M., Dovgialo, M., Olbratowski, P., Niedbalski, P., Ogniewski, P., Zych, J., ... & Żygierewicz, J. (2025). Quantity versus diversity: Influence of data on detecting EEG pathology with advanced ML models. Neural Networks, 108073.
+This project is built upon foundational research in both EEG-based machine learning and domain adaptation. Specifically, it leverages the methodology for EEG pathology detection by **Poziomska et al. (2025)**, integrating it with the Domain-Adversarial Neural Network (DANN) framework introduced by **Ganin et al. (2016)**.
 
-> Ganin, Y., Ustinova, E., Ajakan, H., Germain, P., Larochelle, H., Laviolette, F., ... & Lempitsky, V. (2016). Domain-adversarial training of neural networks. The journal of machine learning research, 17(1), 2096-2030.
+**References:**
+> Poziomska, M., Dovgialo, M., Olbratowski, P., Niedbalski, P., Ogniewski, P., Zych, J., ... & Żygierewicz, J. (2025). Quantity versus diversity: Influence of data on detecting EEG pathology with advanced ML models. *Neural Networks*, 108073.
+
+> Ganin, Y., Ustinova, E., Ajakan, H., Germain, P., Larochelle, H., Laviolette, F., ... & Lempitsky, V. (2016). Domain-adversarial training of neural networks. *The Journal of Machine Learning Research*, 17(1), 2096-2030.
