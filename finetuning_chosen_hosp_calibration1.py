@@ -260,7 +260,7 @@ def get_domain_labels(eids):
 for current_target in MY_TARGET_LIST:
     
     print("\n" + "="*60)
-    print(f"🏥 START PRZETWARZANIA SZPITALA: {current_target}")
+    print(f"START PRZETWARZANIA SZPITALA: {current_target}")
     print("="*60)
 
     # 1. PRZYGOTOWANIE KATALOGU
@@ -326,7 +326,7 @@ for current_target in MY_TARGET_LIST:
     test_loader_full = Loader(data_pth, target_eval_eids, minet_subsampling_n=None, num_workers=4).get_batched_loader(1, pad=True)
 
     # 3. INICJALIZACJA MODELU
-    print("\n🧠 Ładowanie modelu...")
+    print("\n Ładowanie modelu...")
     raw_backbone = torch.load(model_pth, map_location=device)
     if hasattr(raw_backbone, 'n_chans'): raw_backbone.n_chans = 19
 
