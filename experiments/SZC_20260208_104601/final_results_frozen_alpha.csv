@@ -1,0 +1,4 @@
+Metric_Name,Value,Description
+Probing_Best_Target_Diagnosis_AUC,0.8219419441282113,Diag AUC after Linear Probing (Best DANN alpha=0.57)
+Probing_Best_Target_Diagnosis_MCC,0.49778996299046546,Diag MCC after Linear Probing
+Probing_Best_Target_Diagnosis_Acc,0.7477821234379471,Diag Accuracy after Linear Probing
