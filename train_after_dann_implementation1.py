@@ -161,18 +161,17 @@ def clean_eid_str(eid_raw):
 # ==========================================
 # 6. PĘTLA PO SZPITALACH I FOLDERACH
 # ==========================================
-# Użyj swojej listy celów (1/2 lub 2/2)
 MY_TARGET_HOSPITALS = [
     "KUD", "ARCHDAM", "MOR", "KAL", "B2K", 
     "SLU", "SL2", "STG1", "CHE", "KLU", 
     "GAK", "WLU", "Z04O", "TER_L", "PIO"
 ]
 
-print("\n🔍 Sprawdzanie zakończonych eksperymentów Probing w DANN...")
+print("\nSprawdzanie zakończonych eksperymentów Probing w DANN...")
 
 for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
     print("\n" + "="*60)
-    print(f"🏥 SZUKANIE WYNIKÓW DLA SZPITALA: {TARGET_HOSPITAL_CODE}")
+    print(f"SZUKANIE WYNIKÓW DLA SZPITALA: {TARGET_HOSPITAL_CODE}")
     print("="*60)
 
     # Znajdź najnowszy folder dla tego szpitala
@@ -258,7 +257,7 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
     # ---------------------------------------------------------
     # Inicjalizacja Modelu i wczytanie starych wag z best_model.pt
     # ---------------------------------------------------------
-    print(f"🧠 Wczytywanie modelu bazowego MINET i załadowanie wag DANN...")
+    print(f" Wczytywanie modelu bazowego MINET i załadowanie wag DANN...")
     raw_backbone = torch.load(model_pth, map_location=device)
     if hasattr(raw_backbone, 'n_chans'): raw_backbone.n_chans = 19
     dann_model = MinetDANN(raw_backbone, feature_dim=288, num_domains=len(all_hospitals)).to(device)
@@ -279,13 +278,13 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
     # ---------------------------------------------------------
     # PĘTLA TRENINGOWA (tylko head, 30 Epok)
     # ---------------------------------------------------------
-    PROBING_EPOCHS = 30 # <-- Ustawiono na 30 epok zgodnie z prośbą
+    PROBING_EPOCHS = 30 
     STEPS = 500
     
     best_probing_auc = 0.0
     best_probing_wts = copy.deepcopy(dann_model.state_dict())
     
-    print(f"🚀 Rozpoczynam dotrenowywanie głowy medycznej przez {PROBING_EPOCHS} epok...")
+    print(f" Rozpoczynam dotrenowywanie głowy medycznej przez {PROBING_EPOCHS} epok...")
     print(f"   (Logi treningowe zapisywane do: {probing_log_file})")
     
     for epoch in range(PROBING_EPOCHS):
@@ -339,7 +338,7 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
         try: current_probing_auc = roc_auc_score(val_targets, val_preds)
         except ValueError: current_probing_auc = 0.5 
         
-        print(f"   🔬 Epoka {epoch+1}: Train BCE = {avg_loss:.4f} | Val AUC = {current_probing_auc:.4f}")
+        print(f" Epoka {epoch+1}: Train BCE = {avg_loss:.4f} | Val AUC = {current_probing_auc:.4f}")
         
         # Zapis logów
         log_probing_epoch(epoch+1, avg_loss, current_probing_auc)
@@ -378,12 +377,12 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
         mcc_val = matthews_corrcoef(y_true, y_pred)
         acc_val = accuracy_score(y_true, y_pred)
         
-        print(f"   👉 Ostateczne wyniki Probing: AUC={auc_val:.4f} | MCC={mcc_val:.4f} | Acc={acc_val:.4f}")
+        print(f" Ostateczne wyniki Probing: AUC={auc_val:.4f} | MCC={mcc_val:.4f} | Acc={acc_val:.4f}")
         
         log_final_metric(f"Probing_Best_Target_Diagnosis_AUC", auc_val, f"Diag AUC after Linear Probing (Best DANN alpha={best_alpha:.2f})")
         log_final_metric(f"Probing_Best_Target_Diagnosis_MCC", mcc_val, "Diag MCC after Linear Probing")
         log_final_metric(f"Probing_Best_Target_Diagnosis_Acc", acc_val, "Diag Accuracy after Linear Probing")
         
-        print(f"💾 Wyniki zapisano do {final_results_file}")
+        print(f"Wyniki zapisano do {final_results_file}")
 
-print("\n🎉 ZAKOŃCZONO LINEAR PROBING DLA WSZYSTKICH SZPITALI!")
+print("\nZAKOŃCZONO LINEAR PROBING DLA WSZYSTKICH SZPITALI!")

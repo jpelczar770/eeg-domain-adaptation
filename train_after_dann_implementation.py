@@ -38,9 +38,8 @@ model_pth = "/dmj/fizmed/jpelczar/od_martyny/minet/models/minet_raw_fold_6"
 csv_path = 'used_label_database.csv'
 base_experiments_dir = "experiments" # Folder z oryginalnymi eksperymentami DANN
 
-# WYMUSZENIE UŻYCIA CPU
-device = torch.device("cpu")
-print(f"🔧 Using device: {device} (Forced CPU execution)")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print(f"🔧 Using device: {device}")
 
 # ==========================================
 # 4. Definicje Klas i Funkcji (Loader, Model)
@@ -159,9 +158,8 @@ def clean_eid_str(eid_raw):
     return str(eid_raw).strip()
 
 # ==========================================
-# 6. PĘTLA PO SZPITALACH I FOLDERACH
+# 6. PĘTLA PO SZPITALACH I FOLDERACH; 1/2
 # ==========================================
-# Użyj swojej listy celów (1/2 lub 2/2)
 MY_TARGET_HOSPITALS = [
     "ZOZLO", "KATMOJPRZ", "SZC", "TOR", "OST", 
     "LUMICE", "CMD", "SRK", "AKS", "PRZ", 
@@ -180,7 +178,7 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
     matching_folders = sorted(glob.glob(folder_pattern))
     
     if not matching_folders:
-        print(f"⚠️ Nie znaleziono żadnego folderu eksperymentu dla {TARGET_HOSPITAL_CODE}. Pomijam.")
+        print(f"⚠️ Nie znaleziono żadnego folderu eksperymentu dla {TARGET_HOSPITAL_CODE}.")
         continue
         
     target_dir = matching_folders[-1] # Wybieramy najnowszy folder
@@ -202,7 +200,7 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
 
     print(f"📁 Znaleziono folder roboczy: {target_dir}")
     
-    # Inicjalizacja nowych plików (Nadpisujemy jeśli są jakieś resztki z przerwanego treningu)
+    # Inicjalizacja nowych plików 
     with open(final_results_file, 'w', newline='') as f:
         writer = csv.writer(f)
         writer.writerow(['Metric_Name', 'Value', 'Description'])
@@ -234,7 +232,7 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
         best_alpha = 0.0
 
     # ---------------------------------------------------------
-    # Przygotowanie danych (Loader) - num_workers=0 przeciw deadlockom
+    # Przygotowanie danych (Loader) - temp solution-> num_workers=0 przeciw deadlockom
     # ---------------------------------------------------------
     folds, fold_override = read_folds_override(data_pth, None)
     all_eids_raw = get_eids_for_folds(fold_override, [1, 2, 3, 4, 5, 6]) 
@@ -258,7 +256,7 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
     # ---------------------------------------------------------
     # Inicjalizacja Modelu i wczytanie starych wag z best_model.pt
     # ---------------------------------------------------------
-    print(f"🧠 Wczytywanie modelu bazowego MINET i załadowanie wag DANN...")
+    print(f"Wczytywanie modelu bazowego MINET i załadowanie wag DANN...")
     raw_backbone = torch.load(model_pth, map_location=device)
     if hasattr(raw_backbone, 'n_chans'): raw_backbone.n_chans = 19
     dann_model = MinetDANN(raw_backbone, feature_dim=288, num_domains=len(all_hospitals)).to(device)
@@ -266,7 +264,7 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
     dann_model.load_state_dict(torch.load(model_weights_path, map_location=device))
 
     # ZAMRAŻANIE (Linear Probing)
-    print("❄️ Zamrażanie ekstraktora cech (Linear Probing)...")
+    print("Zamrażanie ekstraktora cech (Linear Probing)...")
     for param in dann_model.parameters():
         param.requires_grad = False
     for param in dann_model.backbone.classifier.parameters():
@@ -275,8 +273,6 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
     probing_optimizer = optim.AdamW(dann_model.backbone.classifier.parameters(), lr=1e-3, weight_decay=1e-4)
     loss_cls_fn = nn.BCEWithLogitsLoss()
     
-    # UWAGA: Usunięto instancję GradScaler() pod kątem wymuszenia CPU
-
     # ---------------------------------------------------------
     # PĘTLA TRENINGOWA (tylko head, 30 Epok)
     # ---------------------------------------------------------
@@ -286,7 +282,7 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
     best_probing_auc = 0.0
     best_probing_wts = copy.deepcopy(dann_model.state_dict())
     
-    print(f"🚀 Rozpoczynam dotrenowywanie głowy medycznej przez {PROBING_EPOCHS} epok...")
+    print(f" Rozpoczynam dotrenowywanie głowy medycznej przez {PROBING_EPOCHS} epok...")
     print(f"   (Logi treningowe zapisywane do: {probing_log_file})")
     
     for epoch in range(PROBING_EPOCHS):
@@ -315,7 +311,7 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
             c_pred, _ = dann_model(X, time_stamps=ts, alpha=0.0)
             loss_cls = loss_cls_fn(c_pred, y)
             
-            # Klasyczny backpropagation dla CPU (bez Scalera)
+            # Klasyczny backpropagation dla CPU -> temp solution (to avoid deadlocks) (bez Scalera)
             loss_cls.backward()
             torch.nn.utils.clip_grad_norm_(dann_model.backbone.classifier.parameters(), 1.0)
             probing_optimizer.step()
@@ -341,7 +337,7 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
         try: current_probing_auc = roc_auc_score(val_targets, val_preds)
         except ValueError: current_probing_auc = 0.5 
         
-        print(f"   🔬 Epoka {epoch+1}: Train BCE = {avg_loss:.4f} | Val AUC = {current_probing_auc:.4f}")
+        print(f"Epoka {epoch+1}: Train BCE = {avg_loss:.4f} | Val AUC = {current_probing_auc:.4f}")
         
         # Zapis logów
         log_probing_epoch(epoch+1, avg_loss, current_probing_auc)
@@ -380,7 +376,7 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
         mcc_val = matthews_corrcoef(y_true, y_pred)
         acc_val = accuracy_score(y_true, y_pred)
         
-        print(f"   👉 Ostateczne wyniki Probing: AUC={auc_val:.4f} | MCC={mcc_val:.4f} | Acc={acc_val:.4f}")
+        print(f"Ostateczne wyniki Probing: AUC={auc_val:.4f} | MCC={mcc_val:.4f} | Acc={acc_val:.4f}")
         
         log_final_metric(f"Probing_Best_Target_Diagnosis_AUC", auc_val, f"Diag AUC after Linear Probing (Best DANN alpha={best_alpha:.2f})")
         log_final_metric(f"Probing_Best_Target_Diagnosis_MCC", mcc_val, "Diag MCC after Linear Probing")
@@ -388,4 +384,4 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
         
         print(f"💾 Wyniki zapisano do {final_results_file}")
 
-print("\n🎉 ZAKOŃCZONO LINEAR PROBING DLA WSZYSTKICH SZPITALI!")
+print("\nZAKOŃCZONO LINEAR PROBING DLA WSZYSTKICH SZPITALI.")
