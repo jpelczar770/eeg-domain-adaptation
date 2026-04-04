@@ -34,6 +34,9 @@ from torch.cuda.amp import GradScaler, autocast
 import torchdata.datapipes as dp
 from torchdata.dataloader2 import DataLoader2, MultiProcessingReadingService
 
+# Obejście dla File Descriptor Limit w multiprocessing
+torch.multiprocessing.set_sharing_strategy('file_system')
+
 # ==========================================
 # 4. Lokalne Narzędzia
 # ==========================================
@@ -52,7 +55,7 @@ model_pth = "/dmj/fizmed/jpelczar/od_martyny/minet/models/minet_raw_fold_6"
 csv_path = 'used_label_database.csv'
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-print(f"🔧 Using device: {device}")
+print(f" Using device: {device}")
 
 # --- LISTA WSZYSTKICH SZPITALI (DLA MAPOWANIA) ---
 ALLOWED_HOSPITALS = [
@@ -64,14 +67,46 @@ ALLOWED_HOSPITALS = [
     "GAK", "WLU", "Z04O", "TER_L", "PIO"
 ]
 
-# --- LISTA SZPITALI DLA TEJ MASZYNY (CZĘŚĆ 2/2) ---
+# --- LISTA SZPITALI DLA TEJ MASZYNY (CZĘŚĆ 1/2) ---
 MY_TARGET_LIST = [
     "KUD", "ARCHDAM", "MOR", "KAL", "B2K", 
     "SLU", "SL2", "STG1", "CHE", "KLU", 
     "GAK", "WLU", "Z04O", "TER_L", "PIO"
 ]
 
-print(f"🚀 Uruchamiam pętlę (Multi-task NAIVE - od zera) dla szpitali: {MY_TARGET_LIST}")
+
+# =================================================================
+# CHECK WHAT'S COMPLETED (POMIJANIE GOTOWYCH SZPITALI)
+# =================================================================
+EXP_ROOT = "experiments_multitask_naive_strict_loso"
+
+if os.path.exists(EXP_ROOT):
+    print(f" Skanowanie folderu '{EXP_ROOT}' w celu pominięcia gotowych szpitali...")
+    completed_hospitals = set()
+    
+    for folder_name in os.listdir(EXP_ROOT):
+        if os.path.isdir(os.path.join(EXP_ROOT, folder_name)):
+            # Wyciągamy nazwę szpitala (uwzględniając wyjątki z podkreślnikiem)
+            if folder_name.startswith("LUX_A"): hosp = "LUX_A"
+            elif folder_name.startswith("TER_L"): hosp = "TER_L"
+            else: hosp = folder_name.split('_')[0]
+            
+            # Sprawdzamy czy folder ma plik z wynikami (czy trening dobiegł końca)
+            if os.path.exists(os.path.join(EXP_ROOT, folder_name, "final_results.csv")):
+                completed_hospitals.add(hosp)
+                
+    filtered_list = [h for h in MY_TARGET_LIST if h not in completed_hospitals]
+    print(f" Znaleziono gotowe: {completed_hospitals}")
+    print(f"⏩ Do policzenia pozostało: {filtered_list}")
+    MY_TARGET_LIST = filtered_list
+else:
+    print(f" Folder '{EXP_ROOT}' nie istnieje. Liczymy całą listę od nowa.")
+
+if not MY_TARGET_LIST:
+    print(" Wszystkie szpitale z tej listy zostały już policzone! Zamykam skrypt.")
+    exit()
+
+print(f" Uruchamiam pętlę (Multi-task NAIVE Strict LOSO) dla szpitali: {MY_TARGET_LIST}")
 
 # ==========================================
 # DEFINICJE KLAS (POZA PĘTLĄ)
@@ -214,7 +249,7 @@ def weight_reset(m):
 # GŁÓWNA PĘTLA SZPITALI
 # ==========================================
 
-print("📂 Ładowanie metadanych (raz na start)...")
+print(" Ładowanie metadanych (raz na start)...")
 df_meta = pd.read_csv(csv_path, sep='|', low_memory=False)
 df_meta['examination_id'] = df_meta['examination_id'].astype(str).str.strip()
 df_meta['institution_id'] = df_meta['institution_id'].astype(str).str.strip()
@@ -245,12 +280,11 @@ def get_domain_labels(eids):
 for current_target in MY_TARGET_LIST:
     
     print("\n" + "="*60)
-    print(f"🏥 START PRZETWARZANIA SZPITALA: {current_target}")
+    print(f" START PRZETWARZANIA SZPITALA (Strict LOSO): {current_target}")
     print("="*60)
 
     # 1. PRZYGOTOWANIE KATALOGU
     TIMESTAMP = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    EXP_ROOT = "experiments_multitask_naive" # <--- Nowa nazwa folderu dla startu od zera
     EXP_DIR = f"{EXP_ROOT}/{current_target}_{TIMESTAMP}"
     os.makedirs(EXP_DIR, exist_ok=True)
 
@@ -260,7 +294,8 @@ for current_target in MY_TARGET_LIST:
 
     with open(TRAIN_LOG_FILE, 'w', newline='') as f:
         writer = csv.writer(f)
-        writer.writerow(['Epoch', 'Train_Loss', 'Train_Cls_Loss', 'Train_Dom_Loss', 'Val_Target_AUC', 'Alpha'])
+        # DODANO KOLUMNĘ: Train_Dom_MCC
+        writer.writerow(['Epoch', 'Train_Loss', 'Train_Cls_Loss', 'Train_Dom_Loss', 'Train_Dom_MCC', 'Val_Target_AUC', 'Alpha'])
 
     with open(FINAL_RESULTS_FILE, 'w', newline='') as f:
         writer = csv.writer(f)
@@ -271,12 +306,12 @@ for current_target in MY_TARGET_LIST:
             writer = csv.writer(f)
             writer.writerow([name, value, description])
 
-    # 2. PRZYGOTOWANIE DANYCH (LOSO)
+    # 2. PRZYGOTOWANIE DANYCH (STRICT LOSO - brak podziału Targetu)
     folds, fold_override = read_folds_override(data_pth, None)
     all_eids_raw = get_eids_for_folds(fold_override, [1, 2, 3, 4, 5, 6]) 
 
     source_pool = []
-    target_pool = []
+    test_pool = []
     valid_eids_set = set(df_meta['examination_id'].values)
 
     for eid in all_eids_raw:
@@ -284,34 +319,26 @@ for current_target in MY_TARGET_LIST:
         if eid_clean in valid_eids_set:
             h_name = eid_to_hosp_name.get(eid_clean, "Unknown")
             if h_name == current_target:
-                target_pool.append(eid)
+                test_pool.append(eid) # 100% targetu idzie do puli testowej
             else:
                 source_pool.append(eid)
 
-    if not target_pool:
-        print(f"⚠️ Pominiecie {current_target}: Brak danych.")
+    if not test_pool:
+        print(f" Pominiecie {current_target}: Brak danych testowych.")
         continue
 
-    random.seed(42)
-    random.shuffle(target_pool)
-    split_idx = int(len(target_pool) * 0.5)
-    if split_idx == 0: split_idx = 1
+    print(f"   Source (Train): {len(source_pool)} | Target (Eval/Test): {len(test_pool)}")
 
-    target_train_eids = target_pool[:split_idx]
-    target_eval_eids = target_pool[split_idx:]
-
-    print(f"   Source: {len(source_pool)} | Target Train: {len(target_train_eids)} | Target Eval: {len(target_eval_eids)}")
-
+    # Brak loadera target_train, ponieważ stosujemy strict LOSO
     source_loader = Loader(data_pth, source_pool, minet_subsampling_n=4, num_workers=4).get_batched_loader(32, pad=True)
-    target_loader = Loader(data_pth, target_train_eids, minet_subsampling_n=4, num_workers=4).get_batched_loader(32, pad=True)
-    eval_loader = Loader(data_pth, target_eval_eids, minet_subsampling_n=4, num_workers=2).get_batched_loader(32, pad=True)
-    test_loader_full = Loader(data_pth, target_eval_eids, minet_subsampling_n=None, num_workers=2).get_batched_loader(1, pad=True)
+    eval_loader = Loader(data_pth, test_pool, minet_subsampling_n=4, num_workers=2).get_batched_loader(32, pad=True)
+    test_loader_full = Loader(data_pth, test_pool, minet_subsampling_n=None, num_workers=2).get_batched_loader(1, pad=True)
 
     # 3. INICJALIZACJA MODELU (OD ZERA)
-    print("\n🧠 Ładowanie modelu i RESET WAG (Naive Multi-Task)...")
+    print("\n Ładowanie modelu i RESET WAG (Naive Multi-Task)...")
     raw_backbone = torch.load(model_pth, map_location=device)
     
-    # Niszczymy stare wagi!
+    # Niszczymy stare wagi
     raw_backbone.apply(weight_reset)
     
     if hasattr(raw_backbone, 'n_chans'): raw_backbone.n_chans = 19
@@ -346,23 +373,22 @@ for current_target in MY_TARGET_LIST:
     best_auc = 0.0
     best_model_wts = copy.deepcopy(multitask_model.state_dict())
 
-    def infinite_iterator(loader):
-        while True:
-            for batch in loader: yield batch
-    iter_target = infinite_iterator(target_loader)
-
-    print("🚀 Start Treningu Od Zera (50 Epok)...")
+    print(" Start Treningu Od Zera (50 Epok)...")
     for epoch in range(EPOCHS):
         multitask_model.train()
         iter_source = iter(source_loader)
         
         total_loss, total_cls, total_dom = 0, 0, 0
         steps = 0
+        
+        # Inicjalizacja list do obliczenia Train Domain MCC
+        all_d_true = []
+        all_d_pred = []
 
         pbar = tqdm(range(STEPS), desc=f"Epoka {epoch+1}/{EPOCHS}", leave=False)
         
         for i in pbar:
-            # Utrzymujemy wyliczanie alphy dla logów i wagi domeny, choć nie odwraca ona gradientu
+            # Utrzymujemy wyliczanie alphy dla logów
             if epoch < WARMUP_EPOCHS:
                 alpha = 0.0
             else:
@@ -374,20 +400,14 @@ for current_target in MY_TARGET_LIST:
             try:
                 batch_s = next(iter_source)
                 s_X, s_y, s_eid = batch_s[0], batch_s[1], batch_s[2]
-                batch_t = next(iter_target)
-                t_X, t_y, t_eid = batch_t[0], batch_t[1], batch_t[2]
             except StopIteration:
-                break
+                break # Jeśli skończy się loader przed STEPS
 
             s_X = s_X.to(device, dtype=torch.float32)
             s_y = s_y.to(device, dtype=torch.float32).view(-1, 1)
-            t_X = t_X.to(device, dtype=torch.float32)
             
             s_ts = torch.zeros((s_X.shape[0], s_X.shape[1]), dtype=torch.long, device=device)
-            t_ts = torch.zeros((t_X.shape[0], t_X.shape[1]), dtype=torch.long, device=device)
-
             d_label_s = get_domain_labels(s_eid)
-            d_label_t = get_domain_labels(t_eid)
             
             optimizer.zero_grad()
 
@@ -396,11 +416,12 @@ for current_target in MY_TARGET_LIST:
                 loss_cls = loss_class_fn(c_pred_s, s_y)
                 loss_dom_s = loss_domain_fn(d_pred_s, d_label_s)
 
-                _, d_pred_t = multitask_model(t_X, time_stamps=t_ts, alpha=alpha)
-                loss_dom_t = loss_domain_fn(d_pred_t, d_label_t)
-
-                loss_dom_total = loss_dom_s + loss_dom_t
-                loss = (5.0 * loss_cls) + loss_dom_total
+                # Strata domeny wyliczana TYLKO dla szpitali źródłowych (Strict LOSO)
+                loss = (5.0 * loss_cls) + loss_dom_s
+                
+                # Zbierz etykiety i predykcje domen do wyliczenia MCC
+                all_d_true.extend(d_label_s.cpu().numpy())
+                all_d_pred.extend(torch.argmax(d_pred_s.detach(), dim=1).cpu().numpy())
             
             scaler.scale(loss).backward()
             scaler.unscale_(optimizer) 
@@ -410,12 +431,21 @@ for current_target in MY_TARGET_LIST:
             
             total_loss += loss.item()
             total_cls += loss_cls.item()
-            total_dom += loss_dom_total.item()
+            total_dom += loss_dom_s.item()
             steps += 1
             
-            pbar.set_postfix({'Cls': f"{loss_cls.item():.2f}", 'Dom': f"{loss_dom_total.item():.2f}"})
+            pbar.set_postfix({'Cls': f"{loss_cls.item():.2f}", 'Dom': f"{loss_dom_s.item():.2f}"})
 
-        # Walidacja
+        # Wyliczanie MCC domen po pętli treningowej (z wszystkich batchy epoki)
+        try:
+            if len(np.unique(all_d_true)) > 1:
+                train_dom_mcc = matthews_corrcoef(all_d_true, all_d_pred)
+            else:
+                train_dom_mcc = 0.0
+        except Exception:
+            train_dom_mcc = 0.0
+
+        # Walidacja na Target (100% Targetu)
         multitask_model.eval()
         y_true, y_prob = [], []
         with torch.no_grad():
@@ -435,10 +465,10 @@ for current_target in MY_TARGET_LIST:
         except:
             val_auc = 0.5
 
-        # Zapis logów
+        # Zapis logów z nową metryką Train_Dom_MCC
         with open(TRAIN_LOG_FILE, 'a', newline='') as f:
             writer = csv.writer(f)
-            writer.writerow([epoch+1, total_loss/steps, total_cls/steps, total_dom/steps, val_auc, alpha])
+            writer.writerow([epoch+1, total_loss/steps, total_cls/steps, total_dom/steps, train_dom_mcc, val_auc, alpha])
 
         if val_auc > best_auc:
             best_auc = val_auc
@@ -476,13 +506,13 @@ for current_target in MY_TARGET_LIST:
             mcc = matthews_corrcoef(y_true, y_pred)
             acc = accuracy_score(y_true, y_pred)
             
-            print(f"   👉 {prefix} Results: AUC={auc_val:.4f} | MCC={mcc:.4f} | Acc={acc:.4f}")
+            print(f"    {prefix} Results: AUC={auc_val:.4f} | MCC={mcc:.4f} | Acc={acc:.4f}")
             log_final_metric(f"{prefix}Target_Diagnosis_AUC", auc_val, "Target Eval")
             log_final_metric(f"{prefix}Target_Diagnosis_MCC", mcc, "Target Eval")
             log_final_metric(f"{prefix}Target_Diagnosis_Acc", acc, "Target Eval")
             return auc_val
         else:
-            print("   ⚠️ Brak klas w teście.")
+            print("    Brak klas w teście.")
             return 0.0
 
     def evaluate_metrics_comprehensive(model, loader, device, prefix=""):
@@ -532,11 +562,11 @@ for current_target in MY_TARGET_LIST:
 
     # 2. Best Model
     if best_model_wts is not None:
-        print(f"✅ Przywracanie najlepszych wag (AUC={best_auc:.4f})...")
+        print(f" Przywracanie najlepszych wag (AUC={best_auc:.4f})...")
         multitask_model.load_state_dict(best_model_wts)
         run_evaluation(multitask_model, test_loader_full, device, prefix="Best_")
         evaluate_metrics_comprehensive(multitask_model, source_loader, device, prefix="Best_")
 
-    print(f"✅ Zakończono dla {current_target}")
+    print(f" Zakończono dla {current_target}")
 
-print("\n🎉 ZAKOŃCZONO PĘTLĘ 1/2!")
+print("\n ZAKOŃCZONO PĘTLĘ 1/2")

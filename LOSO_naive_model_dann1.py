@@ -187,7 +187,7 @@ class MinetDANN(nn.Module):
 # ==========================================
 # 6. PRZYGOTOWANIE METADANYCH I DANYCH LOSO
 # ==========================================
-print("📂 Ładowanie metadanych...")
+print(" Ładowanie metadanych...")
 df_meta = pd.read_csv(csv_path, sep='|', low_memory=False)
 
 df_meta['examination_id'] = df_meta['examination_id'].astype(str).str.strip()
@@ -202,9 +202,9 @@ ALLOWED_HOSPITALS = [
     "GAK", "WLU", "Z04O", "TER_L", "PIO"
 ]
 
-print(f"📉 Liczba wszystkich nagrań przed filtrowaniem: {len(df_meta)}")
+print(f" Liczba wszystkich nagrań przed filtrowaniem: {len(df_meta)}")
 df_meta = df_meta[df_meta['institution_id'].isin(ALLOWED_HOSPITALS)].copy()
-print(f"📉 Liczba nagrań PO filtrowaniu (tylko 30 szpitali): {len(df_meta)}")
+print(f" Liczba nagrań PO filtrowaniu (tylko 30 szpitali): {len(df_meta)}")
 
 all_hospitals = sorted(df_meta['institution_id'].unique().tolist())
 hospital_to_id = {name: i for i, name in enumerate(all_hospitals)}
@@ -241,13 +241,13 @@ MY_TARGET_HOSPITALS = [
 
 for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
     print("\n" + "="*50)
-    print(f"🏥 ROZPOCZYNAM PRZETWARZANIE DLA SZPITALA: {TARGET_HOSPITAL_CODE}")
+    print(f" ROZPOCZYNAM PRZETWARZANIE DLA SZPITALA: {TARGET_HOSPITAL_CODE}")
     print("="*50)
 
     # 1. PRZYGOTOWANIE KATALOGU EKSPERYMENTU
     EXP_DIR = f"experiments/{TARGET_HOSPITAL_CODE}_{TIMESTAMP}"
     os.makedirs(EXP_DIR, exist_ok=True)
-    print(f"📁 Wyniki będą zapisywane w: {EXP_DIR}")
+    print(f" Wyniki będą zapisywane w: {EXP_DIR}")
 
     TRAIN_LOG_FILE = os.path.join(EXP_DIR, "training_log.csv")
     FINAL_RESULTS_FILE = os.path.join(EXP_DIR, "final_results.csv")
@@ -268,7 +268,7 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
 
     # 2. PRZYGOTOWANIE DANYCH (LOSO)
     if TARGET_HOSPITAL_CODE not in ALLOWED_HOSPITALS:
-        print(f"⚠️ UWAGA! Szpital {TARGET_HOSPITAL_CODE} nie znajduje się na liście ALLOWED_HOSPITALS!")
+        print(f" UWAGA! Szpital {TARGET_HOSPITAL_CODE} nie znajduje się na liście ALLOWED_HOSPITALS!")
         continue
 
     folds, fold_override = read_folds_override(data_pth, None)
@@ -287,12 +287,12 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
             elif h_name != "Unknown":
                 train_pool.append(eid)
 
-    print(f"📊 DANE DO TRENINGU:")
+    print(f" DANE DO TRENINGU:")
     print(f"   TRAIN: {len(train_pool)} pacjentów")
     print(f"   TEST:  {len(test_pool)} pacjentów")
 
     if len(test_pool) == 0:
-        print(f"⚠️ Brak pacjentów testowych dla {TARGET_HOSPITAL_CODE}. Pomijanie...")
+        print(f" Brak pacjentów testowych dla {TARGET_HOSPITAL_CODE}. Pomijanie...")
         continue
 
     train_loader = Loader(
@@ -310,7 +310,7 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
         elif isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d):
             m.reset_parameters()
 
-    print("\n🧠 Inicjalizacja modelu (RANDOM SCRATCH)...")
+    print("\n Inicjalizacja modelu (RANDOM SCRATCH)...")
     raw_backbone = torch.load(model_pth, map_location=device)
     raw_backbone.apply(weight_reset)
     if hasattr(raw_backbone, 'n_chans'): raw_backbone.n_chans = 19
@@ -348,13 +348,13 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
     patience_counter = 0
 
     # 4. PĘTLA TRENINGOWA
-    print(f"\n🚀 START TRENINGU (Logging to {TRAIN_LOG_FILE})...")
+    print(f"\n START TRENINGU (Logging to {TRAIN_LOG_FILE})...")
     for epoch in range(EPOCHS):
         if epoch < WARMUP_EPOCHS:
             current_epoch_alpha_start = 0.0
         else:
             if epoch == WARMUP_EPOCHS:
-                 print(f"\n🔄 Epoka {epoch+1}: Faza DANN się zaczyna, Reset licznika Patience.")
+                 print(f"\n Epoka {epoch+1}: Faza DANN się zaczyna, Reset licznika Patience.")
                  patience_counter = 0
             current_epoch_alpha_start = 0.0 
 
@@ -445,8 +445,8 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
         avg_dom_acc = metrics['acc_dom'] / STEPS
         epoch_dom_mcc = matthews_corrcoef(all_dom_targets, all_dom_preds) if len(all_dom_targets) > 0 else 0
 
-        print(f"🏁 Epoka {epoch+1}: Train Loss={avg_cls_loss:.4f} | Dom Acc={avg_dom_acc:.4f} | Dom MCC={epoch_dom_mcc:.4f}")
-        print(f"   📊 Val AUC (Target): {current_val_auc:.4f} (Best: {best_auc:.4f})")
+        print(f" Epoka {epoch+1}: Train Loss={avg_cls_loss:.4f} | Dom Acc={avg_dom_acc:.4f} | Dom MCC={epoch_dom_mcc:.4f}")
+        print(f"    Val AUC (Target): {current_val_auc:.4f} (Best: {best_auc:.4f})")
 
         with open(TRAIN_LOG_FILE, 'a', newline='') as f:
             writer = csv.writer(f)
@@ -457,18 +457,18 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
             best_model_wts = copy.deepcopy(dann_model.state_dict())
             torch.save(dann_model.state_dict(), MODEL_SAVE_PATH) 
             patience_counter = 0
-            print("   🏆 Nowy najlepszy model! Zapisano wagi.")
+            print("    Nowy najlepszy model! Zapisano wagi.")
         else:
             patience_counter += 1
             print(f"   ⏳ Brak poprawy od {patience_counter} epok (Limit: {PATIENCE})")
             
         if patience_counter >= PATIENCE:
-            print("\n🛑 Early Stopping.")
+            print("\n Early Stopping.")
             break
 
     # 5. EWALUACJA KOŃCOWA I ZAPIS WYNIKÓW
     def run_target_evaluation(model, loader, device, prefix=""):
-        print(f"\n🧐 EWALUACJA: {prefix} (Target: {TARGET_HOSPITAL_CODE})")
+        print(f"\n EWALUACJA: {prefix} (Target: {TARGET_HOSPITAL_CODE})")
         model.eval()
         y_true, y_prob = [], []
 
@@ -499,18 +499,18 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
             mcc_val = matthews_corrcoef(y_true, y_pred)
             acc_val = accuracy_score(y_true, y_pred)
             
-            print(f"   👉 {prefix}Results: AUC={auc_val:.4f} | MCC={mcc_val:.4f} | Acc={acc_val:.4f}")
+            print(f"    {prefix}Results: AUC={auc_val:.4f} | MCC={mcc_val:.4f} | Acc={acc_val:.4f}")
             
             log_final_metric(f"{prefix}Target_Diagnosis_AUC", auc_val, "Diag AUC on Target Hospital")
             log_final_metric(f"{prefix}Target_Diagnosis_MCC", mcc_val, "Diag MCC on Target Hospital")
             log_final_metric(f"{prefix}Target_Diagnosis_Acc", acc_val, "Diag Accuracy on Target Hospital")
             return auc_val
         else:
-            print("   ⚠️ Not enough classes.")
+            print("    Not enough classes.")
             return 0.0
 
     def evaluate_comprehensive(model, source_loader, target_loader, device, max_batches=100, prefix=""):
-        print(f"\n🚀 ROZPOCZYNAMY KOMPLETNĄ ANALIZĘ {prefix} (Silhouette + Domain Metrics)...")
+        print(f"\n ROZPOCZYNAMY KOMPLETNĄ ANALIZĘ {prefix} (Silhouette + Domain Metrics)...")
         model.eval()
         
         feats_list = []
@@ -566,7 +566,7 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
         d_true = np.array(d_true).astype(int)
         d_pred = np.array(d_pred).astype(int)
         
-        print(f"\n📊 WYNIKI ROZSZERZONE ({prefix}):")
+        print(f"\n WYNIKI ROZSZERZONE ({prefix}):")
         
         if len(np.unique(d_true)) > 1:
             mcc_dom = matthews_corrcoef(d_true, d_pred)
@@ -593,12 +593,12 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
             print(f"   • Silhouette (Domain):    {sil_dom:.4f}")
             log_final_metric(f"{prefix}Silhouette_Domain", sil_dom, f"Clustering quality by hospital ({prefix})")
         
-        print(f"💾 Wszystkie wyniki zapisano w: {FINAL_RESULTS_FILE}")
+        print(f" Wszystkie wyniki zapisano w: {FINAL_RESULTS_FILE}")
 
     run_target_evaluation(dann_model, test_loader, device, prefix="Final_")
     evaluate_comprehensive(dann_model, train_loader, test_loader, device, max_batches=200, prefix="Final_")
 
-    print(f"\n✅ Przywracanie najlepszych wag (AUC={best_auc:.4f})...")
+    print(f"\n Przywracanie najlepszych wag (AUC={best_auc:.4f})...")
     dann_model.load_state_dict(best_model_wts)
     run_target_evaluation(dann_model, test_loader, device, prefix="Best_")
     evaluate_comprehensive(dann_model, train_loader, test_loader, device, max_batches=200, prefix="Best_")

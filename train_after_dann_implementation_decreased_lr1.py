@@ -42,7 +42,7 @@ base_experiments_dir = "experiments" # Stąd CZYTAMY oryginalne wagi i logi DANN
 probing_experiments_dir = "experiments_probing_lr_decreased" # Tutaj ZAPISUJEMY wyniki probingu
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-print(f"🔧 Using device: {device}")
+print(f" Using device: {device}")
 
 # ==========================================
 # 4. Definicje Klas i Funkcji (Loader, Model)
@@ -141,7 +141,7 @@ class MinetDANN(nn.Module):
 # ==========================================
 # 5. PRZYGOTOWANIE METADANYCH
 # ==========================================
-print("📂 Ładowanie metadanych...")
+print(" Ładowanie metadanych...")
 df_meta = pd.read_csv(csv_path, sep='|', low_memory=False)
 df_meta['examination_id'] = df_meta['examination_id'].astype(str).str.strip()
 df_meta['institution_id'] = df_meta['institution_id'].astype(str).str.strip()
@@ -172,7 +172,7 @@ MY_TARGET_HOSPITALS = [
 # Tworzymy główny folder na wyniki, jeśli go nie ma
 os.makedirs(probing_experiments_dir, exist_ok=True)
 
-print(f"🔍 Skanowanie folderu '{probing_experiments_dir}' w celu pominięcia gotowych szpitali...")
+print(f" Skanowanie folderu '{probing_experiments_dir}' w celu pominięcia gotowych szpitali...")
 completed_hospitals = set()
 
 for folder_name in os.listdir(probing_experiments_dir):
@@ -187,23 +187,23 @@ for folder_name in os.listdir(probing_experiments_dir):
             completed_hospitals.add(hosp)
             
 filtered_list = [h for h in MY_TARGET_HOSPITALS if h not in completed_hospitals]
-print(f"✅ Znaleziono gotowe w nowym folderze: {completed_hospitals}")
+print(f" Znaleziono gotowe w nowym folderze: {completed_hospitals}")
 print(f"⏩ Do policzenia pozostało: {filtered_list}")
 MY_TARGET_HOSPITALS = filtered_list
 
 if not MY_TARGET_HOSPITALS:
-    print("🎉 Wszystkie szpitale z tej listy zostały już policzone! Zamykam skrypt.")
+    print(" Wszystkie szpitale z tej listy zostały już policzone! Zamykam skrypt.")
     exit()
 
 # ==========================================
 # 6. PĘTLA PO SZPITALACH (LINEAR PROBING)
 # ==========================================
 
-print(f"\n🚀 Uruchamiam pętlę (Linear Probing, LR=1e-4) dla szpitali: {MY_TARGET_HOSPITALS}")
+print(f"\n Uruchamiam pętlę (Linear Probing, LR=1e-4) dla szpitali: {MY_TARGET_HOSPITALS}")
 
 for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
     print("\n" + "="*60)
-    print(f"🏥 START PROBINGU DLA SZPITALA: {TARGET_HOSPITAL_CODE}")
+    print(f" START PROBINGU DLA SZPITALA: {TARGET_HOSPITAL_CODE}")
     print("="*60)
 
     # 1. SZUKANIE ORYGINALNYCH WAG W BAZOWYM FOLDERZE 'experiments'
@@ -211,7 +211,7 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
     matching_folders = sorted(glob.glob(folder_pattern))
     
     if not matching_folders:
-        print(f"⚠️ Nie znaleziono oryginalnego folderu eksperymentu DANN dla {TARGET_HOSPITAL_CODE}. Pomijam.")
+        print(f" Nie znaleziono oryginalnego folderu eksperymentu DANN dla {TARGET_HOSPITAL_CODE}. Pomijam.")
         continue
         
     source_dir = matching_folders[-1] # Wybieramy najnowszy oryginalny folder DANN
@@ -219,15 +219,15 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
     log_file_path = os.path.join(source_dir, "training_log.csv")
     
     if not os.path.exists(model_weights_path) or not os.path.exists(log_file_path):
-        print(f"⚠️ W folderze {source_dir} brakuje oryginalnych wag lub logów. Pomijam.")
+        print(f" W folderze {source_dir} brakuje oryginalnych wag lub logów. Pomijam.")
         continue
 
     # 2. TWORZENIE NOWEGO FOLDERU DOCELOWEGO W 'experiments_probing_lr_decreased'
     target_dir = os.path.join(probing_experiments_dir, TARGET_HOSPITAL_CODE)
     os.makedirs(target_dir, exist_ok=True)
     
-    print(f"📂 Zródło wag (Read-only): {source_dir}")
-    print(f"💾 Cel zapisu (Probing) : {target_dir}")
+    print(f" Zródło wag (Read-only): {source_dir}")
+    print(f" Cel zapisu (Probing) : {target_dir}")
 
     # --- ŚCIEŻKI DO NOWYCH PLIKÓW ---
     final_results_file = os.path.join(target_dir, "final_results_frozen_alpha.csv")
@@ -259,7 +259,7 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
         best_prev_auc = log_df.loc[best_epoch_idx, 'Val_Target_AUC']
         best_alpha = log_df.loc[best_epoch_idx, 'Alpha']
         best_epoch_num = log_df.loc[best_epoch_idx, 'Epoch']
-        print(f"📈 Z logów bazowych DANN: Najlepszy model był w epoce {best_epoch_num} (AUC={best_prev_auc:.4f}, Alpha={best_alpha:.2f})")
+        print(f" Z logów bazowych DANN: Najlepszy model był w epoce {best_epoch_num} (AUC={best_prev_auc:.4f}, Alpha={best_alpha:.2f})")
     else:
         best_prev_auc = 0.5
         best_alpha = 0.0
@@ -280,7 +280,7 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
             elif h_name != "Unknown": train_pool.append(eid)
 
     if len(test_pool) == 0:
-        print(f"⚠️ Brak pacjentów testowych. Pomijam.")
+        print(f" Brak pacjentów testowych. Pomijam.")
         continue
 
     train_loader = Loader(data_pth, train_pool, minet_subsampling_n=4, num_workers=4).get_batched_loader(batch_size=32, pad=True)
@@ -289,7 +289,7 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
     # ---------------------------------------------------------
     # Inicjalizacja Modelu i wczytanie starych wag z best_model.pt
     # ---------------------------------------------------------
-    print(f"🧠 Ładowanie wag MINET DANN z {model_weights_path}...")
+    print(f" Ładowanie wag MINET DANN z {model_weights_path}...")
     raw_backbone = torch.load(model_pth, map_location=device)
     if hasattr(raw_backbone, 'n_chans'): raw_backbone.n_chans = 19
     dann_model = MinetDANN(raw_backbone, feature_dim=288, num_domains=len(all_hospitals)).to(device)
@@ -297,7 +297,7 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
     dann_model.load_state_dict(torch.load(model_weights_path, map_location=device))
 
     # ZAMRAŻANIE (Linear Probing)
-    print("🧊 Zamrażanie ekstraktora cech...")
+    print(" Zamrażanie ekstraktora cech...")
     for param in dann_model.parameters():
         param.requires_grad = False
     for param in dann_model.backbone.classifier.parameters():
@@ -315,7 +315,7 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
     best_probing_auc = 0.0
     best_probing_wts = copy.deepcopy(dann_model.state_dict())
     
-    print(f"🚀 Rozpoczynam dotrenowywanie (LR=1e-4) przez {PROBING_EPOCHS} epok...")
+    print(f" Rozpoczynam dotrenowywanie (LR=1e-4) przez {PROBING_EPOCHS} epok...")
     
     for epoch in range(PROBING_EPOCHS):
         dann_model.train()
@@ -379,7 +379,7 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
     # ---------------------------------------------------------
     # EWALUACJA KOŃCOWA
     # ---------------------------------------------------------
-    print(f"\n✅ Zakończono Probing dla {TARGET_HOSPITAL_CODE}. Przywracam najlepsze wagi (AUC={best_probing_auc:.4f})...")
+    print(f"\n Zakończono Probing dla {TARGET_HOSPITAL_CODE}. Przywracam najlepsze wagi (AUC={best_probing_auc:.4f})...")
     dann_model.load_state_dict(best_probing_wts)
     dann_model.eval()
     
@@ -411,6 +411,6 @@ for TARGET_HOSPITAL_CODE in MY_TARGET_HOSPITALS:
         log_final_metric(f"Probing_Best_Target_Diagnosis_MCC", mcc_val, "Diag MCC after Linear Probing")
         log_final_metric(f"Probing_Best_Target_Diagnosis_Acc", acc_val, "Diag Accuracy after Linear Probing")
         
-        print(f"💾 Wyniki zapisano do {final_results_file}")
+        print(f" Wyniki zapisano do {final_results_file}")
 
-print("\n🎉 ZAKOŃCZONO LINEAR PROBING DLA WSZYSTKICH SZPITALI Z LISTY.")
+print("\n ZAKOŃCZONO LINEAR PROBING DLA WSZYSTKICH SZPITALI Z LISTY.")
