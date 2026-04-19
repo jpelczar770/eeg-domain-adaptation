@@ -1,0 +1,7 @@
+Metric_Name,Value,Description
+Final_Target_Diagnosis_AUC,0.7749686234424935,Diag AUC on Target Hospital
+Final_Target_Diagnosis_MCC,0.3927737223444851,Diag MCC on Target Hospital
+Final_Target_Diagnosis_Acc,0.7418924922256774,Diag Accuracy on Target Hospital
+Best_Target_Diagnosis_AUC,0.7718094030475154,Diag AUC on Target Hospital
+Best_Target_Diagnosis_MCC,0.372774743858639,Diag MCC on Target Hospital
+Best_Target_Diagnosis_Acc,0.6974677920924034,Diag Accuracy on Target Hospital
